@@ -66,7 +66,9 @@ private:
   unsigned int buffered_readings_;
   std::vector<ros::Subscriber> range_subs_;
   double min_x_, min_y_, max_x_, max_y_;
-
+  
+  std::vector<unsigned int> valid_index;
+  
   dynamic_reconfigure::Server<range_sensor_layer::RangeSensorLayerConfig> *dsrv_;
 };
 }

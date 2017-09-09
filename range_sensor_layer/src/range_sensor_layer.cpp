@@ -314,10 +314,10 @@ void RangeSensorLayer::updateCostmap(sensor_msgs::Range& range_message, bool cle
     for(unsigned int y=by0; y<=(unsigned int)by1; y++){
       double wx, wy;
       mapToWorld(x,y,wx,wy);
+      valid_index.push_back(getIndex(x, y));
       update_cell(ox, oy, theta, range_message.range, wx, wy, clear_sensor_cone);
     }
   }
-
   buffered_readings_++;
   last_reading_time_ = ros::Time::now();
 }
@@ -390,10 +390,11 @@ void RangeSensorLayer::updateCosts(costmap_2d::Costmap2D& master_grid, int min_i
   unsigned char* master_array = master_grid.getCharMap();
   unsigned int span = master_grid.getSizeInCellsX();
   unsigned char clear = to_cost(clear_threshold_), mark = to_cost(mark_threshold_);
-
+  
   for (int j = min_j; j < max_j; j++)
   {
     unsigned int it = j * span + min_i;
+
     for (int i = min_i; i < max_i; i++)
     {
       unsigned char prob = costmap_[it];
@@ -417,8 +418,26 @@ void RangeSensorLayer::updateCosts(costmap_2d::Costmap2D& master_grid, int min_i
         master_array[it] = current;
       it++;
     }
+
   }
 
+  /* remove the cost outside the field of view of sonar to avoid disturbing path planning. */
+  int idx;
+  for (int j = min_j; j < max_j; j++) {
+    unsigned int it = j * span + min_i;
+    for (int i = min_i; i < max_i; i++) {
+        for (idx = 0; idx < valid_index.size(); idx++) {
+            if (it == valid_index[idx]) break;
+        }
+        if (idx == valid_index.size())
+            master_array[it] = costmap_2d::FREE_SPACE;
+        
+        it++;
+    }
+  }
+  valid_index.clear();
+
+  
   buffered_readings_ = 0;
   current_ = true;
 }
