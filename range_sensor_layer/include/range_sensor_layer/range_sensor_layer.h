@@ -68,7 +68,8 @@ private:
   double min_x_, min_y_, max_x_, max_y_;
   
   std::vector<unsigned int> valid_index;
-  
+  double clear_radius_;
+      
   dynamic_reconfigure::Server<range_sensor_layer::RangeSensorLayerConfig> *dsrv_;
 };
 }

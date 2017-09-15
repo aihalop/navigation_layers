@@ -33,6 +33,7 @@ void RangeSensorLayer::onInitialize()
 
   nh.param("ns", topics_ns, std::string());
   nh.param("topics", topic_names, topic_names);
+  nh.param("clear_radius", clear_radius_, 3.0); //radius of a circle area in which obstacle outside the view of sonar in sonar layer are cleared.
 
   InputSensorType input_sensor_type = ALL;
   std::string sensor_type_name;
@@ -314,6 +315,7 @@ void RangeSensorLayer::updateCostmap(sensor_msgs::Range& range_message, bool cle
     for(unsigned int y=by0; y<=(unsigned int)by1; y++){
       double wx, wy;
       mapToWorld(x,y,wx,wy);
+      printf("%u, ", getIndex(x, y));
       valid_index.push_back(getIndex(x, y));
       update_cell(ox, oy, theta, range_message.range, wx, wy, clear_sensor_cone);
     }
@@ -353,6 +355,17 @@ void RangeSensorLayer::updateBounds(double robot_x, double robot_y, double robot
 
   updateCostmap();
 
+  int costmap_length = getSizeInCellsX() * getSizeInCellsY();
+  for (int i = 0; i < costmap_length; i++) {
+      printf("costmap_[%d] = %d\n", i, costmap_[i]);
+  }
+  printf("--\n");
+  for (int i = 0; i < valid_index.size(); i++) {
+      printf("%u, ", valid_index[i]);
+  }
+  valid_index.clear();
+  printf("==\n");
+  
   *min_x = std::min(*min_x, min_x_);
   *min_y = std::min(*min_y, min_y_);
   *max_x = std::max(*max_x, max_x_);
@@ -390,11 +403,10 @@ void RangeSensorLayer::updateCosts(costmap_2d::Costmap2D& master_grid, int min_i
   unsigned char* master_array = master_grid.getCharMap();
   unsigned int span = master_grid.getSizeInCellsX();
   unsigned char clear = to_cost(clear_threshold_), mark = to_cost(mark_threshold_);
-  
+
   for (int j = min_j; j < max_j; j++)
   {
     unsigned int it = j * span + min_i;
-
     for (int i = min_i; i < max_i; i++)
     {
       unsigned char prob = costmap_[it];
@@ -418,26 +430,8 @@ void RangeSensorLayer::updateCosts(costmap_2d::Costmap2D& master_grid, int min_i
         master_array[it] = current;
       it++;
     }
-
   }
 
-  /* remove the cost outside the field of view of sonar to avoid disturbing path planning. */
-  int idx;
-  for (int j = min_j; j < max_j; j++) {
-    unsigned int it = j * span + min_i;
-    for (int i = min_i; i < max_i; i++) {
-        for (idx = 0; idx < valid_index.size(); idx++) {
-            if (it == valid_index[idx]) break;
-        }
-        if (idx == valid_index.size())
-            master_array[it] = costmap_2d::FREE_SPACE;
-        
-        it++;
-    }
-  }
-  valid_index.clear();
-
-  
   buffered_readings_ = 0;
   current_ = true;
 }
