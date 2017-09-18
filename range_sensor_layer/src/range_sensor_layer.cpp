@@ -31,6 +31,10 @@ void RangeSensorLayer::onInitialize()
   std::string topics_ns;
   XmlRpc::XmlRpcValue topic_names(xml, &zero_offset);
 
+  cell_status = NULL;
+  cell_size = 0;
+  count = 0;
+
   nh.param("ns", topics_ns, std::string());
   nh.param("topics", topic_names, topic_names);
   nh.param("clear_radius", clear_radius_, 3.0); //radius of a circle area in which obstacle outside the view of sonar in sonar layer are cleared.
@@ -311,12 +315,18 @@ void RangeSensorLayer::updateCostmap(sensor_msgs::Range& range_message, bool cle
   bx1 = std::min((int)size_x_, bx1);
   by1 = std::min((int)size_y_, by1);
 
+  //printf("bx0 = %d, by0 = %d, bx1 = %d, by1 = %d, index = %d\n", bx0, by0, bx1, by1, getIndex(0, 0));
+ 
+  double deltax, deltay;
+  unsigned int idx;
   for(unsigned int x=bx0; x<=(unsigned int)bx1; x++){
     for(unsigned int y=by0; y<=(unsigned int)by1; y++){
       double wx, wy;
       mapToWorld(x,y,wx,wy);
-      printf("%u, ", getIndex(x, y));
-      valid_index.push_back(getIndex(x, y));
+      idx = getIndex(x, y);
+      if (idx < cell_size) {
+	  cell_status[idx] = OCCUPIED;
+      }
       update_cell(ox, oy, theta, range_message.range, wx, wy, clear_sensor_cone);
     }
   }
@@ -353,18 +363,31 @@ void RangeSensorLayer::updateBounds(double robot_x, double robot_y, double robot
   if (layered_costmap_->isRolling())
     updateOrigin(robot_x - getSizeInMetersX() / 2, robot_y - getSizeInMetersY() / 2);
 
+  cell_size = (getSizeInCellsX()) * (getSizeInCellsY());
+  
+  if (cell_status == NULL) {
+      cell_status = (int *) malloc(cell_size * sizeof(int));
+  }
+  // clear cell_status
+  for (int i = 0; i < cell_size; i++) {
+      cell_status[i] = EMPTY;
+  }
+      
   updateCostmap();
 
-  int costmap_length = getSizeInCellsX() * getSizeInCellsY();
-  for (int i = 0; i < costmap_length; i++) {
-      printf("costmap_[%d] = %d\n", i, costmap_[i]);
+  unsigned int mx, my;
+  double wx, wy, dx, dy, distance;
+  for (int i = 0; i < cell_size; i++) {
+      indexToCells(i, mx, my);
+      mapToWorld(mx, my, wx, wy);
+      dx = robot_x - wx;
+      dy = robot_y - wy;
+      distance = sqrt(dx * dx + dy * dy);
+      if (cell_status[i] == EMPTY && distance < clear_radius_)
+  	  costmap_[i] = costmap_2d::FREE_SPACE;
   }
-  printf("--\n");
-  for (int i = 0; i < valid_index.size(); i++) {
-      printf("%u, ", valid_index[i]);
-  }
-  valid_index.clear();
-  printf("==\n");
+  free(cell_status);
+  cell_status = NULL;
   
   *min_x = std::min(*min_x, min_x_);
   *min_y = std::min(*min_y, min_y_);
@@ -443,6 +466,8 @@ void RangeSensorLayer::reset()
   resetMaps();
   current_ = true;
   activate();
+  free(cell_status);
+  cell_status = NULL;
 }
 
 void RangeSensorLayer::deactivate()

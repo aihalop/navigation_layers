@@ -20,6 +20,8 @@ public:
     ALL
   };
 
+  enum MapCellStatus {EMPTY, OCCUPIED};
+
   RangeSensorLayer();
 
   virtual void onInitialize();
@@ -67,9 +69,12 @@ private:
   std::vector<ros::Subscriber> range_subs_;
   double min_x_, min_y_, max_x_, max_y_;
   
-  std::vector<unsigned int> valid_index;
+  //std::vector<unsigned int> valid_index;
+  int *cell_status;
+  unsigned int cell_size;
   double clear_radius_;
-      
+  int count;
+
   dynamic_reconfigure::Server<range_sensor_layer::RangeSensorLayerConfig> *dsrv_;
 };
 }
