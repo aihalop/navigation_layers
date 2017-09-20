@@ -324,6 +324,7 @@ void RangeSensorLayer::updateCostmap(sensor_msgs::Range& range_message, bool cle
       double wx, wy;
       mapToWorld(x,y,wx,wy);
       idx = getIndex(x, y);
+      //printf("idx = %d, ", idx);
       if (idx < cell_size) {
 	  cell_status[idx] = OCCUPIED;
       }
@@ -364,7 +365,7 @@ void RangeSensorLayer::updateBounds(double robot_x, double robot_y, double robot
     updateOrigin(robot_x - getSizeInMetersX() / 2, robot_y - getSizeInMetersY() / 2);
 
   cell_size = (getSizeInCellsX()) * (getSizeInCellsY());
-  
+
   if (cell_status == NULL) {
       cell_status = (int *) malloc(cell_size * sizeof(int));
   }
@@ -383,9 +384,12 @@ void RangeSensorLayer::updateBounds(double robot_x, double robot_y, double robot
       dx = robot_x - wx;
       dy = robot_y - wy;
       distance = sqrt(dx * dx + dy * dy);
-      if (cell_status[i] == EMPTY && distance < clear_radius_)
-  	  costmap_[i] = costmap_2d::FREE_SPACE;
+      //printf("i = %3d, (mx, my) = (%3d, %3d), cell = %3d, distance = %f, clear_radius_ = %f, %d, costmap[%3d] = %d\n", i, mx, my, cell_status[i], distance, clear_radius_, (cell_status[i] == EMPTY), i, costmap_[i]);
+      if (cell_status[i] == EMPTY && distance < clear_radius_) {
+	  setCost(mx, my, costmap_2d::FREE_SPACE);
+      }
   }
+  //printf("\n====\n");
   free(cell_status);
   cell_status = NULL;
   
@@ -426,13 +430,14 @@ void RangeSensorLayer::updateCosts(costmap_2d::Costmap2D& master_grid, int min_i
   unsigned char* master_array = master_grid.getCharMap();
   unsigned int span = master_grid.getSizeInCellsX();
   unsigned char clear = to_cost(clear_threshold_), mark = to_cost(mark_threshold_);
-
+  //printf("min_i = %d, min_j = %d, max_i = %d, max_j = %d\n", min_i, min_j, max_i, max_j);
   for (int j = min_j; j < max_j; j++)
   {
     unsigned int it = j * span + min_i;
     for (int i = min_i; i < max_i; i++)
     {
       unsigned char prob = costmap_[it];
+      //printf("%d, prob = %u\n", it, prob);
       unsigned char current;
       if(prob==costmap_2d::NO_INFORMATION){
         it++;
